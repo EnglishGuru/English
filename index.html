@@ -240,14 +240,14 @@ async function push(){if(!CODE)return;const R=toRecs();
 function save(){render();pq=pq.then(push).catch(e=>{dlg('\u062a\u0639\u0630\u0651\u0631 \u0627\u0644\u062d\u0641\u0638 \u0639\u0644\u0649 \u0627\u0644\u0633\u064a\u0631\u0641\u0631: '+e.message+'\n\u062c\u0631\u0651\u0628\u064a \u062a\u0636\u063a\u0637\u064a \ud83d\udd04 \u0644\u0644\u062a\u062d\u062f\u064a\u062b.')});return pq}
 async function refresh(){try{await pq;const r=await rpc('whoami',{tok:CODE});if(!r||!r.role)throw new Error('انتهت الجلسة، ادخلي تاني');await boot(r,true)}catch(e){dlg('\u062a\u0639\u0630\u0651\u0631 \u0627\u0644\u062a\u062d\u062f\u064a\u062b: '+e.message)}}
 async function init(){if(location.hash==='#register')REGST={step:1,d:{},err:{},done:false};render();
- sample=async(p)=>{const r=await fetch(SB+'/functions/v1/ai',{method:'POST',headers:{apikey:SBK,Authorization:'Bearer '+SBK,'Content-Type':'application/json'},body:JSON.stringify({code:CODE,prompt:p})});
+ sample=async(p,o)=>{const r=await fetch(SB+'/functions/v1/ai',{method:'POST',headers:{apikey:SBK,Authorization:'Bearer '+SBK,'Content-Type':'application/json'},body:JSON.stringify({code:CODE,prompt:p,json:!!(o&&o.json)})});
   if(!r.ok){let m='';try{m=(await r.json()).error||''}catch(e){}throw new Error(r.status===404?'خدمة الذكاء الاصطناعي لسه مش مفعّلة':'خطأ '+r.status+(m?' — '+m:''))}const j=await r.json();return{text:j.text||''}};
  try{HAS_PW=await rpc('has_pw')}catch(e){HAS_PW=true}
  let c='';try{c=sessionStorage.getItem('eg')||''}catch(e){}
  if(c){try{const r=await rpc('whoami',{tok:c});if(r&&r.role){CODE=c;await boot(r);return}}catch(e){}try{sessionStorage.removeItem('eg')}catch(e){}}
  render()}
-async function ask(p,el){if(!sample){el.textContent='⚠️ المساعد الذكي غير متاح في هذا العرض.';return}
- el.textContent='جاري التفكير…';try{const r=await sample(p,{onText:({text})=>{el.textContent=text}});el.textContent=r.text}catch(e){el.textContent='تعذر الاتصال بالمساعد الذكي: '+(e.message||e.code)}}
+async function ask(p,el,json){if(!sample){el.textContent='⚠️ المساعد الذكي غير متاح في هذا العرض.';return}
+ el.textContent='جاري التفكير…';try{const r=await sample(p,{json,onText:({text})=>{el.textContent=text}});el.textContent=r.text}catch(e){el.textContent='تعذر الاتصال بالمساعد الذكي: '+(e.message||e.code)}}
 const stu=id=>S.students.find(s=>s.id===id);
 const fo=(l,id)=>!l.to||l.to.includes(id),LS=id=>S.lessons.filter(l=>fo(l,id)),ST=l=>S.students.filter(s=>fo(l,s.id));
 const avg=id=>{const g=Object.values(S.hw).map(h=>h[id]?.grade).filter(g=>g!==undefined&&g!=='');return g.length?Math.round(g.reduce((a,b)=>a+ +b,0)/g.length*10)/10:0};
@@ -336,7 +336,7 @@ function bkCard(){return `<div class="card"><h3>💾 النسخ الاحتياط
 async function bkDown(){const e=$('#bke');e.textContent='جاري التجهيز…';try{const d=await rpc('backup_dump',{code:CODE});dlBlob('English-Guru-backup-'+new Date().toISOString().slice(0,10)+'.json',new Blob([JSON.stringify(d)],{type:'application/json'}));e.textContent='تم ✅ ('+d.rec.length+' سجل)'}catch(x){e.textContent='تعذّر: '+x.message}}
 async function bkRest(){const f=$('#bkf').files[0],e=$('#bke');if(!f)return alert('اختاري ملف النسخة الأول');
  dlg('الاسترجاع هيضيف ويحدّث البيانات من الملف. متأكدة؟',async()=>{e.textContent='جاري الاسترجاع…';try{const t=f.name.endsWith('.gz')?await new Response(f.stream().pipeThrough(new DecompressionStream('gzip'))).text():await f.text();const n=await rpc('restore_dump',{code:CODE,dump:JSON.parse(t)});e.textContent='تم استرجاع '+n+' سجل ✅';await refresh()}catch(x){e.textContent='تعذّر: '+x.message}})}
-const BUILD='v2026.10.31-adv';
+const BUILD='v2026.11.01-editor';
 const GR=[['','🎒 Student · طالب'],['grad','🎓 Graduate · خريج'],['uni','🏛️ University · جامعي'],['tchr','👩‍🏫 Trainee Teacher · مدرس تحت التدريب']];
 function setGrp(id,v){const t=stu(id);if(!t)return;t.grp=v;t.pc=v?'':(t.pc||rc('PAR-'));save()}
 const pwB=(id,f)=>{const t=stu(id),c=t&&t[f];return c?`<div class="mu" style="margin-top:4px;font-size:.78rem">${PW.has(String(c).toUpperCase())?'🔐 عنده كلمة سر':'⏳ لسه ما اختارش'} <button class="s" style="padding:2px 8px;min-height:0;font-size:.74rem" onclick="resetPw('${id}','${f}')">إعادة تعيين</button></div>`:''};
@@ -435,6 +435,7 @@ function sAd(s){if(!S.units.length)return '<div class="card mu" style="text-alig
  const lim=!prem&&tc>=1,idx={};ls.forEach((l,i)=>idx[l.id]=i);
  return `<div class="adh"><div class="stc"><span class="ic">🔥</span><b>${P.streak||0}</b><span>يوم متتالي</span></div><div class="stc"><span class="ic">⭐</span><b>${P.xp||0}</b><span>XP</span></div><div class="stc ${lim?'hot':''}"><span class="ic">📅</span><b>${prem?'∞':tc+'/1'}</b><span>${prem?'Premium ⭐':'درس النهارده'}</span></div></div>
 ${lim?'<div class="card" style="text-align:center">🌙 خلصت درس النهارده! الدرس الجاي بيتفتح بكرة. تقدري تراجعي الدروس اللي خلصتيها.</div>':''}
+${Object.keys(P.miss||{}).length?`<div class="card row" style="justify-content:space-between"><span>🔁 عندك ${Object.keys(P.miss).length} حاجة محتاجة مراجعة</span><button onclick="adReview()">راجعي دلوقتي</button></div>`:''}
 <div class="lvt">${lvs.map(l=>`<button class="${l===adLv?'on':''}" onclick="adLv='${l}';render()">${l} · ${LVN[l]||''}</button>`).join('')}</div>`+
  S.units.filter(u=>u.lv===adLv).map((u,ui)=>{const col=u.col||UCOL[ui%UCOL.length],d=(u.lessons||[]).filter(l=>dn[l.id]).length;
   return `<div class="unit" style="background:linear-gradient(135deg,${col},${col}cc)"><div><h3>${u.em||''} ${esc(u.t)}</h3><span>Unit ${esc(u.n)}</span></div><span>${d}/${(u.lessons||[]).length}</span></div><div class="path">${(u.lessons||[]).map((l,i)=>{const g=ls[idx[l.id]],unlocked=idx[l.id]===0||dn[ls[idx[l.id]-1].id],done=dn[l.id],isCur=cur&&cur.id===l.id,off=[0,38,58,38,0,-38,-58,-38][i%8],st=done?'done':unlocked?(isCur?'cur':''):'lock';
@@ -443,14 +444,14 @@ function adTry(lid){const s=stu(who.id),ls=allLessons(),i=ls.findIndex(l=>l.id==
  if(i<0)return;if(i>0&&!dn[ls[i-1].id])return alert('اخلص الدرس اللي قبله الأول 🔒');
  if(!dn[lid]&&!s.prem&&(P.day===cairoDay()?(P.today||0):0)>=1)return dlg('خلصت درس النهارده 🌙\nالدرس الجاي بيتفتح بكرة، أو فعّلي Premium عشان تكملي من غير حد يومي.');adStart(lid)}
 // ---------------- the lesson player
-function adStart(lid){const L=allLessons().find(x=>x.id===lid);if(!L)return;AD={lid,title:L.t,q:L.items.map(it=>({it,tries:0})),pos:0,ok:0,total:0,miss:{},st:'ask',fin:null};adInit();render()}
+function adStart(lid){const L=allLessons().find(x=>x.id===lid);if(!L)return;AD={lid,title:L.t,q:L.items.map(it=>({it,tries:0})),pos:0,ok:0,total:0,miss:{},hits:{},st:'ask',fin:null};adInit();render()}
 function adInit(){const A=AD,c=A.q[A.pos];if(!c)return;const it=c.it;A.st='ask';A.sel=null;A.built=[];A.mt={l:null,done:[],bad:false};
  if(it.t==='build')A.pool=shuf([...it.w,...(it.extra||[])].map((w,i)=>({w,i})));
  if(it.t==='match'){A.L=shuf(it.pairs.map((p,i)=>({t:p[0],i})));A.R=shuf(it.pairs.map((p,i)=>({t:p[1],i})))}
  if(['mcq','fill','listen'].includes(it.t))A.O=shuf(it.o.map((t,i)=>({t,i})));
  if(it.t==='listen'||it.t==='learn')setTimeout(()=>say(it.say||it.w),300)}
 const adKey=it=>String(it.w&&it.t==='build'?it.w.join(' '):it.q||it.say||it.w||(it.pairs&&it.pairs[0][0])||'?').slice(0,70);
-function adScore(ok,requeue){const A=AD,c=A.q[A.pos];if(c.tries===0){A.total++;if(ok)A.ok++;else A.miss[adKey(c.it)]=1}if(!ok&&requeue&&c.tries<2)A.q.push({it:c.it,tries:c.tries+1})}
+function adScore(ok,requeue){const A=AD,c=A.q[A.pos],k=adKey(c.it);if(c.tries===0){A.total++;if(ok){A.ok++;A.hits[k]=1}else A.miss[k]=1}if(!ok&&requeue&&c.tries<2)A.q.push({it:c.it,tries:c.tries+1})}
 function adPick(i){if(AD.st!=='ask')return;AD.sel=i;render()}
 function adWord(i){if(AD.st!=='ask')return;const k=AD.built.indexOf(i);if(k>=0)AD.built.splice(k,1);else AD.built.push(i);render()}
 function adMatch(side,i){const A=AD,m=A.mt;if(A.st!=='ask'||m.done.includes(i)&&side==='L')return;
@@ -462,14 +463,18 @@ function adCheck(){const A=AD,c=A.q[A.pos],it=c.it;let ok;
  else if(it.t==='build'){if(!A.built.length)return;ok=A.built.map(i=>A.pool.find(p=>p.i===i).w).join(' ').toLowerCase()===it.w.join(' ').toLowerCase()}
  adScore(ok,true);A.st=ok?'right':'wrong';render();if(ok&&it.say)say(it.say)}
 function adNext(){const A=AD;A.pos++;if(A.pos>=A.q.length)return adFinish();adInit();render()}
-async function adFinish(){const A=AD;A.fin={load:true};render();
- try{const r=await rpc('adv_done',{tok:CODE,p_lid:A.lid,p_ok:A.ok,p_total:A.total,p_miss:A.miss});
-  if(r.error==='limit')A.fin={limit:true};else{S.prog[who.id]=r.prog;A.fin={r,acc:A.total?Math.round(100*A.ok/A.total):100}}}
+async function adFinish(){const A=AD,acc=A.total?Math.round(100*A.ok/A.total):100;A.fin={load:true};render();
+ if(A.preview){A.fin={prev:true,acc};render();return}
+ try{if(A.review){const r=await rpc('adv_review',{tok:CODE,p_fix:Object.keys(A.hits)});if(r.error==='limit')A.fin={limit:true};else{S.prog[who.id]=r.prog;A.fin={rv:true,r,acc}}}
+  else{const r=await rpc('adv_done',{tok:CODE,p_lid:A.lid,p_ok:A.ok,p_total:A.total,p_miss:A.miss});
+   if(r.error==='limit')A.fin={limit:true};else{S.prog[who.id]=r.prog;A.fin={r,acc}}}}
  catch(e){A.fin={err:e.message==='locked'?'اخلص الدرس اللي قبله الأول':'تعذّر حفظ التقدم: '+e.message}}render()}
 function adQuit(){AD=null;render()}
 function adV(){const A=AD,c=A.q[A.pos],head=(p)=>`<div class="plh"><button class="s" onclick="adQuit()" aria-label="خروج">✕</button><div class="pb" style="flex:1"><i style="width:${p}%"></i></div></div>`;
  if(A.fin){const f=A.fin;let b;
   if(f.load)b='<div class="fin"><div class="big">⏳</div><p>جاري حفظ تقدمك…</p></div>';
+  else if(f.prev)b=`<div class="fin"><div class="big">👀</div><h2>انتهت المعاينة</h2><p class="mu">الدقة ${f.acc}% — المعاينة مش بتحفظ نقاط.</p></div>`;
+  else if(f.rv)b=`<div class="fin"><div class="big">🔁</div><h2>خلصت المراجعة!</h2><p class="mu">اتصلّح ${f.r.gain} من الأخطاء · الدقة ${f.acc}%</p></div>`;
   else if(f.limit)b='<div class="fin"><div class="big">🌙</div><h2>خلصت درس النهارده!</h2><p class="mu">الدرس الجاي بيتفتح بكرة. أو فعّلي Premium عشان تكملي من غير حد يومي.</p></div>';
   else if(f.err)b=`<div class="fin"><div class="big">⚠️</div><p>${esc(f.err)}</p></div>`;
   else{const r=f.r;b=`<div class="fin"><div class="stars">${'⭐'.repeat(r.stars)}${'☆'.repeat(3-r.stars)}</div><h2>${r.first?'🎉 أحسنت! خلصت الدرس':'👏 مراجعة ممتازة'}</h2><div class="adh" style="margin-top:14px"><div class="stc"><span class="ic">⭐</span><b>+${r.gain}</b><span>XP</span></div><div class="stc"><span class="ic">🎯</span><b>${f.acc}%</b><span>دقة</span></div><div class="stc"><span class="ic">🔥</span><b>${r.prog.streak}</b><span>يوم متتالي</span></div></div></div>`}
@@ -500,23 +505,70 @@ const SEED=[{lv:'A1',n:1,t:'Hello! — التحيات',em:'👋',col:'#7c3aed',l
 {t:'Checkpoint',ty:'check',items:[{t:'mcq',q:'What does "Red" mean?',o:['أحمر','أخضر','أصفر'],a:0},{t:'fill',q:'The sky is ___.',o:['blue','red','green'],a:0},{t:'build',ar:'أنا أحب القطط',w:['I','like','cats'],extra:['is']},{t:'match',pairs:[['Dog','🐶'],['Apple','🍎'],['Sun','☀️']]}]}]}];
 const SCH='{"t":"Unit title — العنوان بالعربي","em":"🍎","lessons":[{"t":"lesson title","ty":"learn|match|build|listen|grammar|review|check","items":[{"t":"learn","w":"word","ar":"المعنى","em":"🍎"},{"t":"mcq","q":"question","o":["a","b","c"],"a":0,"say":"optional spoken text"},{"t":"listen","say":"spoken English","o":["Arabic 1","Arabic 2"],"a":0},{"t":"fill","q":"I ___ a student.","o":["am","is","are"],"a":0},{"t":"build","ar":"جملة بالعربي","w":["Words","in","correct","order"],"extra":["distractor"]},{"t":"match","pairs":[["English","Arabic or emoji"],["..",".."]]}]}]}';
 function seedUnits(){const go=()=>{SEED.forEach(u=>putUnit(u));save().then(()=>alert('اتحمّل المحتوى التجريبي ✅'))};S.units.length?dlg('فيه وحدات موجودة بالفعل. تضيفي المحتوى التجريبي كمان؟',go):go()}
-function tCn(){const U=S.units,prog=Object.entries(S.prog).map(([sid,p])=>({s:stu(sid),p})).filter(x=>x.s).sort((a,b)=>(b.p.xp||0)-(a.p.xp||0)),mk={};
+function tCn(){if(ED)return edV();const U=S.units,prog=Object.entries(S.prog).map(([sid,p])=>({s:stu(sid),p})).filter(x=>x.s).sort((a,b)=>(b.p.xp||0)-(a.p.xp||0)),mk={};
  Object.values(S.prog).forEach(p=>Object.entries(p.miss||{}).forEach(([k,v])=>mk[k]=(mk[k]||0)+(+v||0)));const tm=Object.entries(mk).sort((a,b)=>b[1]-a[1]).slice(0,10),ed=CN_EDIT&&U.find(u=>u.id===CN_EDIT);
  return `<div class="card"><h3>🗺️ رحلة التعلم — المحتوى</h3><p class="mu">الوحدات هنا هي اللي الطلاب بيشوفوها في مسار الرحلة. كل وحدة فيها دروس، وكل درس فيه تمارين. الطالب المجاني يخلص درس واحد في اليوم، والـ Premium من غير حد (فعّليه من جدول الطلاب).</p>
-<div class="row"><button onclick="seedUnits()">📥 تحميل محتوى تجريبي (A1)</button></div></div>
-<div class="card"><h3>🤖 توليد وحدة بالذكاء الاصطناعي</h3><div class="row"><select id="cl"><option>A1</option><option>A2</option><option>B1</option><option>B2</option></select><input id="ct2" placeholder="الموضوع: مثلاً Family, Food, Daily routine" style="flex:1;min-width:200px"><select id="cn2"><option>3</option><option selected>4</option><option>5</option><option>6</option></select></div><div class="row"><button onclick="cnGen()">🤖 ولّدي الوحدة</button></div><div id="cno" class="ai" hidden></div>${CN_PREV?`<div class="card" style="background:var(--pr2)"><b>معاينة: ${esc(CN_PREV.t)}</b> — ${CN_PREV.lessons.length} دروس<ul>${CN_PREV.lessons.map(l=>`<li>${esc(l.t)} (${l.items.length} تمرين)</li>`).join('')}</ul><div class="row"><button onclick="cnSavePrev()">✅ احفظي الوحدة</button><button class="s" onclick="CN_PREV=null;render()">إلغاء</button></div><p class="mu">راجعي المحتوى قبل الحفظ، وتقدرين تعدّلي بعد الحفظ من زر ✏️.</p></div>`:''}</div>
+<div class="row"><button onclick="edOpen()">➕ وحدة جديدة</button><button class="s" onclick="seedUnits()">📥 تحميل محتوى تجريبي (A1)</button></div></div>
+<div class="card"><h3>🤖 توليد وحدة بالذكاء الاصطناعي</h3><div class="row"><select id="cl"><option>A1</option><option>A2</option><option>B1</option><option>B2</option></select><input id="ct2" placeholder="الموضوع: مثلاً Family, Food, Daily routine" style="flex:1;min-width:200px"><select id="cn2"><option selected>3</option><option>4</option><option>5</option><option>6</option></select></div><div class="row"><button onclick="cnGen()">🤖 ولّدي الوحدة</button></div><div id="cno" class="ai" hidden></div>${CN_PREV?`<div class="card" style="background:var(--pr2)"><b>معاينة: ${esc(CN_PREV.t)}</b> — ${CN_PREV.lessons.length} دروس<ul>${CN_PREV.lessons.map(l=>`<li>${esc(l.t)} (${l.items.length} تمرين)</li>`).join('')}</ul><div class="row"><button onclick="cnSavePrev()">✅ احفظي الوحدة</button><button class="s" onclick="CN_PREV=null;render()">إلغاء</button></div><p class="mu">راجعي المحتوى قبل الحفظ، وتقدرين تعدّلي بعد الحفظ من زر ✏️.</p></div>`:''}</div>
 <div class="card"><h3>📋 استيراد وحدة (JSON)</h3><textarea id="cjs" placeholder='الصقي JSON الوحدة هنا' style="min-height:90px;direction:ltr"></textarea><div class="row"><select id="cjl"><option>A1</option><option>A2</option><option>B1</option><option>B2</option></select><button class="s" onclick="cnImport()">استيراد</button></div><details><summary class="mu">شكل الـ JSON المطلوب</summary><pre dir="ltr" style="white-space:pre-wrap;font-size:.75rem">${esc(SCH)}</pre></details></div>
 ${ed?`<div class="card"><h3>✏️ تعديل: ${esc(ed.t)}</h3><textarea id="cje" style="min-height:260px;direction:ltr;font-family:monospace;font-size:.8rem">${esc(JSON.stringify({lv:ed.lv,n:ed.n,t:ed.t,em:ed.em,col:ed.col,lessons:ed.lessons},null,1))}</textarea><div class="row"><button onclick="cnSaveEdit()">حفظ التعديل</button><button class="s" onclick="CN_EDIT=null;render()">إلغاء</button></div><p class="mu">متغيّريش قيم id في الدروس، عشان تقدم الطلاب مرتبط بيها.</p></div>`:''}
-${U.map(u=>`<div class="card"><div class="top"><h3>${u.em||''} ${esc(u.t)}</h3><span class="b">${u.lv} · وحدة ${esc(u.n)}</span></div><div class="mu">${(u.lessons||[]).map(l=>`${TYI[l.ty]||'⭐'} ${esc(l.t)} (${l.items.length})`).join(' · ')}</div><div class="row"><button class="s" onclick="CN_EDIT='${u.id}';render();window.scrollTo(0,0)">✏️ تعديل</button><button class="d" onclick="cnDel('${u.id}')">حذف</button></div></div>`).join('')||'<div class="card mu">مفيش وحدات لسه. حمّلي المحتوى التجريبي أو ولّدي وحدة.</div>'}
+${U.map(u=>`<div class="card"><div class="top"><h3>${u.em||''} ${esc(u.t)}</h3><span class="b">${u.lv} · وحدة ${esc(u.n)}</span></div><div class="mu">${(u.lessons||[]).map(l=>`${TYI[l.ty]||'⭐'} ${esc(l.t)} (${l.items.length})`).join(' · ')}</div><div class="row"><button class="s" onclick="edOpen('${u.id}')">✏️ تعديل الأسئلة</button><button class="s" onclick="CN_EDIT='${u.id}';render();window.scrollTo(0,0)">{ } JSON</button><button class="d" onclick="cnDel('${u.id}')">حذف</button></div></div>`).join('')||'<div class="card mu">مفيش وحدات لسه. حمّلي المحتوى التجريبي أو ولّدي وحدة.</div>'}
 <div class="card"><h3>📊 تقدم الطلاب في الرحلة</h3>${prog.length?`<div class="sc"><table><tr><th>الطالب</th><th>XP</th><th>🔥</th><th>دروس</th><th>آخر نشاط</th><th>الخطة</th></tr>${prog.map(x=>`<tr><td>${esc(fn(x.s.name))}</td><td>${x.p.xp||0}</td><td>${x.p.streak||0}</td><td>${Object.keys(x.p.done||{}).length}</td><td>${esc(x.p.last||'—')}</td><td>${x.s.prem?'⭐':'مجاني'}</td></tr>`).join('')}</table></div>`:'<span class="mu">لسه محدش بدأ.</span>'}
 <h3 style="margin-top:14px">❗ أكتر الأخطاء</h3>${tm.map(([k,v])=>`<div class="top"><span dir="auto">${esc(k)}</span><span class="b">${v}×</span></div>`).join('')||'<span class="mu">مفيش أخطاء متسجلة لسه.</span>'}</div>`}
-async function cnGen(){const o=$('#cno');o.hidden=false;await ask(`Create ONE English-learning unit for Arabic-speaking students, level ${$('#cl').value}, topic "${$('#ct2').value||'Daily life'}", with ${$('#cn2').value} lessons. Return ONLY valid JSON (no markdown, no comments) in exactly this shape: ${SCH}. Rules: use simple, correct British English; each lesson has 5-9 items; the first lesson starts with several "learn" items; the last lesson is a checkpoint mixing item types; "a" is the zero-based index of the correct option; for "build" the "w" array is the correct word order.`,o);
- try{let t=o.textContent.replace(/```json|```/g,'');t=t.slice(t.indexOf('{'),t.lastIndexOf('}')+1);const u=JSON.parse(t),e=vUnit(u);if(e){o.textContent='⚠️ الوحدة اللي اتولّدت فيها مشكلة: '+e+'\nجرّبي تولّدي تاني.';CN_PREV=null;return}u.lv=$('#cl').value;CN_PREV=u;o.hidden=true;render()}catch(x){o.textContent='⚠️ الرد مش JSON صالح. جرّبي تولّدي تاني.'}}
+function parseJ(t){t=String(t||'').replace(/```json|```/g,'');const a=t.indexOf('{'),b=t.lastIndexOf('}');if(a<0||b<=a)throw new Error('no json');return JSON.parse(t.slice(a,b+1).replace(/,\s*([}\]])/g,'$1'))}
+async function cnGen(){const o=$('#cno');o.hidden=false;CN_PREV=null;
+ await ask(`Create ONE English-learning unit for Arabic-speaking students, level ${$('#cl').value}, topic "${$('#ct2').value||'Daily life'}", with ${$('#cn2').value} lessons. Return ONLY valid JSON (no markdown, no comments) in exactly this shape: ${SCH}. Rules: use simple, correct British English; each lesson has 5-8 items; the first lesson starts with several "learn" items; the last lesson is a checkpoint mixing item types; "a" is the zero-based index of the correct option; for "build" the "w" array is the correct word order. Escape any double quotes inside strings.`,o,true);
+ const raw=o.textContent;try{const u=parseJ(raw),e=vUnit(u);if(e){o.textContent='⚠️ الوحدة اللي اتولّدت فيها مشكلة: '+e+'\nجرّبي تولّدي تاني أو قلّلي عدد الدروس.';return}u.lv=$('#cl').value;CN_PREV=u;o.hidden=true;render()}
+ catch(x){o.textContent='⚠️ الرد مش JSON صالح ('+raw.length+' حرف). جرّبي تاني أو قلّلي عدد الدروس.\n\nأول الرد:\n'+raw.slice(0,300)}}
 function cnSavePrev(){if(!CN_PREV)return;putUnit(CN_PREV);CN_PREV=null;save().then(()=>alert('اتحفظت الوحدة ✅'))}
 function cnImport(){let u;try{u=JSON.parse($('#cjs').value)}catch(e){return alert('الـ JSON مش صالح')}const e=vUnit(u);if(e)return alert(e);u.lv=u.lv||$('#cjl').value;putUnit(u);save().then(()=>alert('اتضافت الوحدة ✅'))}
 function cnSaveEdit(){let u;try{u=JSON.parse($('#cje').value)}catch(e){return alert('الـ JSON مش صالح')}const e=vUnit(u);if(e)return alert(e);putUnit(u,CN_EDIT);CN_EDIT=null;save()}
 function cnDel(id){dlg('حذف الوحدة وكل دروسها؟',()=>{S.units=S.units.filter(u=>u.id!==id);save()})}
 function setPrem(id,v){const t=stu(id);if(t){t.prem=!!v;save()}}
+let ED=null;
+const EDT=[['learn','🆕 كلمة جديدة'],['mcq','❓ اختيار'],['listen','🎧 استماع'],['fill','✏️ أكمل الجملة'],['build','🧩 ترتيب كلمات'],['match','🔗 توصيل']],LTY=['learn','match','build','listen','grammar','review','check'];
+const newItem=t=>({learn:{t:'learn',w:'',ar:'',em:''},mcq:{t:'mcq',q:'',o:['',''],a:0},listen:{t:'listen',say:'',o:['',''],a:0},fill:{t:'fill',q:'I ___ a student.',o:['am','is'],a:0},build:{t:'build',ar:'',w:['',''],extra:[]},match:{t:'match',pairs:[['',''],['','']]}})[t];
+const edGet=p=>p.split('.').reduce((o,k)=>o[k],ED.u);
+function edSet(p,v){const a=p.split('.'),l=a.pop();a.reduce((o,k)=>o[k],ED.u)[l]=v}
+function edOpen(id){const u=id?S.units.find(x=>x.id===id):null;ED={li:null,u:u?JSON.parse(JSON.stringify(u)):{id:null,lv:adLv||'A1',n:'',t:'',em:'📘',lessons:[]}};render();window.scrollTo(0,0)}
+function edClose(){ED=null;render()}
+function edSave(){const u=ED.u,e=vUnit(u);if(e)return alert(e);putUnit(u,u.id||undefined);ED=null;save().then(()=>alert('اتحفظت ✅'))}
+function edLes(i){ED.li=i;render();window.scrollTo(0,0)}
+function edAddL(){ED.u.lessons.push({id:uid()+uid(),t:'درس جديد',ty:'learn',items:[]});ED.li=ED.u.lessons.length-1;render();window.scrollTo(0,0)}
+function edDelL(i){dlg('حذف الدرس؟',()=>{ED.u.lessons.splice(i,1);render()})}
+function edMvL(i,d){const a=ED.u.lessons,j=i+d;if(j<0||j>=a.length)return;[a[i],a[j]]=[a[j],a[i]];render()}
+function edAddI(t){ED.u.lessons[ED.li].items.push(newItem(t));render()}
+function edDelI(li,i){ED.u.lessons[li].items.splice(i,1);render()}
+function edMvI(li,i,d){const a=ED.u.lessons[li].items,j=i+d;if(j<0||j>=a.length)return;[a[i],a[j]]=[a[j],a[i]];render()}
+function edOptAdd(p){edGet(p).o.push('');render()}
+function edOptDel(p,k){const it=edGet(p);it.o.splice(k,1);if(it.a===k)it.a=0;else if(it.a>k)it.a--;render()}
+function edPairAdd(p){edGet(p).pairs.push(['','']);render()}
+function edPairDel(p,k){edGet(p).pairs.splice(k,1);render()}
+function edPrev(){const l=ED.u.lessons[ED.li],e=vUnit({t:'x',lessons:[l]});if(e)return alert(e);AD={lid:'preview',title:l.t,q:l.items.map(it=>({it,tries:0})),pos:0,ok:0,total:0,miss:{},hits:{},st:'ask',fin:null,preview:true};adInit();render()}
+function edItem(li,i,it){const p=`lessons.${li}.items.${i}`,T=EDT.find(x=>x[0]===it.t),sm='style="padding:4px 10px;min-height:0"',
+ inp=(f,ph,v,ex)=>`<input ${ex||''} value="${esc(v||'')}" placeholder="${ph}" oninput="edSet('${p}.${f}',this.value)" style="width:100%;margin:4px 0">`;let b='';
+ if(it.t==='learn')b=inp('w','الكلمة بالإنجليزي',it.w,'dir="ltr"')+inp('ar','المعنى بالعربي',it.ar)+inp('em','إيموجي (اختياري)',it.em);
+ else if(['mcq','fill','listen'].includes(it.t))b=(it.t==='listen'?inp('say','الجملة اللي هتتنطق (English)',it.say,'dir="ltr"'):inp('q',it.t==='fill'?'الجملة (حطي ___ مكان الفراغ)':'السؤال',it.q,it.t==='fill'?'dir="ltr"':'dir="auto"')+(it.t==='mcq'?inp('say','نص يتنطق (اختياري)',it.say,'dir="ltr"'):''))+`<div class="mu">الاختيارات (علّمي الإجابة الصحيحة بالدايرة):</div>`+it.o.map((o,k)=>`<div class="row" style="margin:3px 0"><input type="radio" name="r${p}" ${it.a===k?'checked':''} onchange="edSet('${p}.a',${k})" style="width:auto"><input value="${esc(o)}" oninput="edSet('${p}.o.${k}',this.value)" style="flex:1" dir="auto">${it.o.length>2?`<button class="d" ${sm} onclick="edOptDel('${p}',${k})">✕</button>`:''}</div>`).join('')+(it.o.length<5?`<button class="s" onclick="edOptAdd('${p}')">➕ اختيار</button>`:'');
+ else if(it.t==='build')b=inp('ar','الجملة بالعربي',it.ar)+`<input value="${esc((it.w||[]).join(' '))}" placeholder="الجملة الصحيحة بالإنجليزي (الكلمات بمسافات)" oninput="edSet('${p}.w',this.value.trim().split(/\\s+/).filter(Boolean))" dir="ltr" style="width:100%;margin:4px 0"><input value="${esc((it.extra||[]).join(' '))}" placeholder="كلمات زيادة للتشتيت (اختياري)" oninput="edSet('${p}.extra',this.value.trim().split(/\\s+/).filter(Boolean))" dir="ltr" style="width:100%;margin:4px 0">`;
+ else if(it.t==='match')b=it.pairs.map((q,k)=>`<div class="row" style="margin:3px 0"><input value="${esc(q[0])}" placeholder="English" oninput="edSet('${p}.pairs.${k}.0',this.value)" dir="ltr" style="flex:1"><input value="${esc(q[1])}" placeholder="عربي أو إيموجي" oninput="edSet('${p}.pairs.${k}.1',this.value)" style="flex:1" dir="auto">${it.pairs.length>2?`<button class="d" ${sm} onclick="edPairDel('${p}',${k})">✕</button>`:''}</div>`).join('')+(it.pairs.length<6?`<button class="s" onclick="edPairAdd('${p}')">➕ زوج</button>`:'');
+ return `<div class="card"><div class="top"><b>${T?T[1]:esc(it.t)} · ${i+1}</b><span class="row" style="margin:0"><button class="s" ${sm} onclick="edMvI(${li},${i},-1)">⬆</button><button class="s" ${sm} onclick="edMvI(${li},${i},1)">⬇</button><button class="d" ${sm} onclick="edDelI(${li},${i})">🗑</button></span></div>${b}</div>`}
+function edV(){const u=ED.u,L=ED.li,btn=(f,t,c)=>`<button class="${c===undefined?'s':c}" onclick="${f}">${t}</button>`;
+ if(L===null)return `<div class="card"><div class="top"><h3>${u.id?'✏️ تعديل الوحدة':'➕ وحدة جديدة'}</h3>${btn('edClose()','← رجوع')}</div>
+<div class="row"><input value="${esc(u.t)}" placeholder="عنوان الوحدة (English — بالعربي)" oninput="edSet('t',this.value)" style="flex:1;min-width:220px"><input value="${esc(u.em||'')}" placeholder="🙂" style="width:70px;text-align:center" oninput="edSet('em',this.value)"></div>
+<div class="row"><select onchange="edSet('lv',this.value)">${['A1','A2','B1','B2'].map(l=>`<option ${u.lv===l?'selected':''}>${l}</option>`).join('')}</select><input type="number" value="${esc(u.n??'')}" placeholder="رقم الوحدة" style="width:130px" oninput="edSet('n',this.value)"></div></div>
+${u.lessons.map((l,i)=>`<div class="card"><div class="top"><b>${TYI[l.ty]||'⭐'} ${esc(l.t)}</b><span class="b">${l.items.length} تمرين</span></div><div class="row">${btn(`edLes(${i})`,'✏️ تعديل التمارين')}${btn(`edMvL(${i},-1)`,'⬆')}${btn(`edMvL(${i},1)`,'⬇')}${btn(`edDelL(${i})`,'حذف','d')}</div></div>`).join('')}
+<div class="row">${btn('edAddL()','➕ درس جديد')}${btn('edSave()','💾 حفظ الوحدة','')}</div>`;
+ const l=u.lessons[L],p0=`lessons.${L}`;
+ return `<div class="card"><div class="top"><h3>${TYI[l.ty]||'⭐'} الدرس</h3>${btn('ED.li=null;render()','← الوحدة')}</div>
+<div class="row"><input value="${esc(l.t)}" placeholder="عنوان الدرس" oninput="edSet('${p0}.t',this.value)" style="flex:1;min-width:200px"><select onchange="edSet('${p0}.ty',this.value)">${LTY.map(t=>`<option ${l.ty===t?'selected':''}>${t}</option>`).join('')}</select></div></div>
+${l.items.map((it,i)=>edItem(L,i,it)).join('')}
+<div class="card"><b>➕ أضيفي تمرين</b><div class="row">${EDT.map(([t,n])=>btn(`edAddI('${t}')`,n)).join('')}</div></div>
+<div class="row">${btn('edPrev()','▶ جرّبي الدرس')}${btn('ED.li=null;render()','تم ✓','')}</div>`}
+// ---------------- student: review mistakes
+function reviewItems(P){const ks=Object.entries(P.miss||{}).sort((a,b)=>b[1]-a[1]).map(x=>x[0]),all=[];allLessons().forEach(l=>l.items.forEach(it=>{if(it.t!=='learn')all.push(it)}));const out=[],seen=new Set();for(const k of ks){const it=all.find(x=>adKey(x)===k);if(it&&!seen.has(k)){seen.add(k);out.push(it)}if(out.length>=8)break}return out}
+function adReview(){const s=stu(who.id),P=S.prog[s.id]||{},items=reviewItems(P);if(!items.length)return alert('مفيش حاجة للمراجعة دلوقتي 🎉');
+ if(!s.prem&&P.rday===cairoDay()&&(P.rcount||0)>=3)return dlg('خلصت مراجعات النهارده المجانية (3). بتتجدد بكرة، أو فعّلي Premium.');
+ AD={lid:'review',title:'مراجعة الأخطاء',q:items.map(it=>({it,tries:0})),pos:0,ok:0,total:0,miss:{},hits:{},st:'ask',fin:null,review:true};adInit();render()}
 function tXl(){return `<div class="card"><h3>📤 Export to Excel · تصدير</h3><p class="mu">ملف واحد بكل البيانات في شيتات منفصلة: الطلاب، الحصص، الحضور، الواجبات، المدفوعات، الكتابات، الأسئلة.</p><button onclick="xlExp()">⬇️ Download .xlsx</button></div>
 <div class="card"><h3>📥 Import Students · استيراد</h3><p class="mu">ارفعي ملف Excel أو CSV: العمود الأول الاسم، الثاني كود الطالب، الثالث كود ولي الأمر (الأكواد اختيارية وتتولد لو فاضية).</p><div class="row"><input type="file" id="xi" accept=".xlsx,.xls,.csv"><button onclick="xlImp()">Import</button></div></div>`}
 async function xlExp(){try{await needXlsx()}catch(e){return alert(e.message)}
@@ -539,7 +591,7 @@ async function xlImp(){const f=$('#xi').files[0];if(!f)return alert('اختار�
 function logout(){who=null;tab='';CODE='';RAW='';REGST=null;STEP='login';PEND='';PW=new Set();try{sessionStorage.removeItem('eg')}catch(e){}S=blank();render()}
 function render(){const a=$('#app');
  if(!who)return a.innerHTML=REGST?regV():loginV();
- if(AD&&who.role==='s')return a.innerHTML=adV();const v=who.role==='t'?teacherV():who.role==='s'?studentV():parentV();a.innerHTML=v+'</main>'+botNav()+'</div>'}
+ if(AD&&(who.role==='s'||AD.preview))return a.innerHTML=adV();const v=who.role==='t'?teacherV():who.role==='s'?studentV():parentV();a.innerHTML=v+'</main>'+botNav()+'</div>'}
 const FORM='https://docs.google.com/forms/d/e/1FAIpQLScLUY0iD76qIBK1IM3dau43_ENTS8U3-PoTND96tuRZH8Y6XQ/viewform?usp=sf_link',WA='https://wa.me/201020486251',wa=m=>WA+(m?'?text='+encodeURIComponent(m):'');
 const TX={en:{home:'Home',courses:'Courses',features:'Features',pricing:'Pricing',about:'About',login:'Log In',signup:'Sign Up',hello:'Hello',
  h1a:'Learn English',h1b:'for a Brighter Future',lead:'Interactive lessons, real-life practice and expert support for every learner — from beginners to advanced, from school to business.',
