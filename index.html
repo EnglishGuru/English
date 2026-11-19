@@ -11,7 +11,7 @@ body{margin:0;background:var(--bg);color:var(--tx);font-family:Tahoma,"Segoe UI"
 .card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:14px;margin:10px 0}
 h1,h2,h3{margin:.3em 0}h3{font-size:1.05rem}
 input,select,textarea,button{font:inherit;color:var(--tx);background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:8px 10px;max-width:100%}
-textarea{width:100%;min-height:70px}
+textarea{width:100%;min-height:70px}.rt{line-height:1.75}.rt>div{margin:.3em 0}.rt ul,.rt ol{margin:.3em 0;padding-inline-start:1.5em}.rt h4{margin:.6em 0 .2em}.rt mark{background:#fff0a0;color:#222;border-radius:4px;padding:0 3px}.rt a{word-break:break-all}.rtb{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0}.rtb button{min-height:34px;padding:2px 12px}.rtp{border:1px dashed var(--bd);border-radius:12px;padding:6px 12px;margin:6px 0}.att{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0;align-items:center}.att img{max-height:150px;max-width:100%;border-radius:10px}
 button{cursor:pointer;background:var(--pr);color:#fff;border:0}button.s{background:var(--pr2);color:var(--pr)}button.d{background:var(--bad)}button:disabled{opacity:.5}
 .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0}
 .tabs{display:flex;gap:6px;overflow-x:auto;padding:6px 0}.tabs button{background:var(--pr2);color:var(--pr);white-space:nowrap}.tabs button.a{background:var(--pr);color:#fff}
@@ -350,7 +350,7 @@ function bkCard(){return `<div class="card"><h3>💾 النسخ الاحتياط
 async function bkDown(){const e=$('#bke');e.textContent='جاري التجهيز…';try{const d=await rpc('backup_dump',{code:CODE});dlBlob('English-Guru-backup-'+new Date().toISOString().slice(0,10)+'.json',new Blob([JSON.stringify(d)],{type:'application/json'}));e.textContent='تم ✅ ('+d.rec.length+' سجل)'}catch(x){e.textContent='تعذّر: '+x.message}}
 async function bkRest(){const f=$('#bkf').files[0],e=$('#bke');if(!f)return alert('اختار ملف النسخة الأول');
  dlg('الاسترجاع هيضيف ويحدّث البيانات من الملف. متأكدة؟',async()=>{e.textContent='جاري الاسترجاع…';try{const t=f.name.endsWith('.gz')?await new Response(f.stream().pipeThrough(new DecompressionStream('gzip'))).text():await f.text();const n=await rpc('restore_dump',{code:CODE,dump:JSON.parse(t)});e.textContent='تم استرجاع '+n+' سجل ✅';await refresh()}catch(x){e.textContent='تعذّر: '+x.message}})}
-const BUILD='v2026.11.19-media';
+const BUILD='v2026.11.20-rich';
 const GR=[['','🎒 Student · طالب'],['grad','🎓 Graduate · خريج'],['uni','🏛️ University · جامعي'],['tchr','🧑‍🏫 Trainee Teacher · مدرس تحت التدريب']];
 function setGrp(id,v){const t=stu(id);if(!t)return;t.grp=v;t.pc=v?'':(t.pc||rc('PAR-'));save()}
 const pwB=(id,f)=>{const t=stu(id),c=t&&t[f];return c?`<div class="mu" style="margin-top:4px;font-size:.78rem">${PW.has(String(c).toUpperCase())?'🔐 عنده كلمة سر':'⏳ لسه ما اختارش'} <button class="s" style="padding:2px 8px;min-height:0;font-size:.74rem" onclick="resetPw('${id}','${f}')">إعادة تعيين</button></div>`:''};
@@ -449,6 +449,36 @@ async function mUp(el,path,f){let file=el.files&&el.files[0];el.value='';if(!fil
   say('⏳ 0%');const pr=n=>say('⏳ '+n+'%'),url=f==='vd'?await cldUp(file,pr):await ikUp(file,'/english-guru/'+(f==='au'?'audio':'images'),pr);
   edSet(path+'.'+f,url);render()}catch(e){say('');alert('تعذّر الرفع: '+e.message)}}
 function mDel(path,f){delete path.split('.').reduce((o,k)=>o[k],ED.u)[f];render()}
+function rtInl(t){return t.replace(/\*\*([^*\n]+?)\*\*/g,'<b>$1</b>').replace(/__([^_\n]+?)__/g,'<u>$1</u>').replace(/==([^=\n]+?)==/g,'<mark>$1</mark>')
+ .replace(/(^|[\s(،])\*(?!\s)([^*\n]*?[^\s*])\*(?=$|[\s).,!?:؛،])/g,'$1<i>$2</i>')
+ .replace(/(https?:\/\/(?:&amp;|[^\s<&])+[^\s<&.,;:!?)\]])/g,u=>'<a href="'+u+'" target="_blank" rel="noopener">'+u+'</a>')}
+function rt(t){t=String(t==null?'':t).replace(/\r/g,'');if(!t.trim())return '';const L=esc(t).split('\n'),out=[];let list=null,para=[];
+ const fl=()=>{if(para.length){out.push('<div dir="auto">'+para.map(rtInl).join('<br>')+'</div>');para=[]}},cl=()=>{if(list){out.push('</'+list+'>');list=null}};
+ for(const ln of L){let m;if(!ln.trim()){fl();cl();continue}
+  if(m=ln.match(/^\s*#{1,3}\s+(.+)$/)){fl();cl();out.push('<h4 dir="auto">'+rtInl(m[1])+'</h4>');continue}
+  if(m=ln.match(/^\s*[-•*]\s+(.+)$/)){fl();if(list!=='ul'){cl();out.push('<ul>');list='ul'}out.push('<li dir="auto">'+rtInl(m[1])+'</li>');continue}
+  if(m=ln.match(/^\s*\d{1,3}[.)]\s+(.+)$/)){fl();if(list!=='ol'){cl();out.push('<ol>');list='ol'}out.push('<li dir="auto">'+rtInl(m[1])+'</li>');continue}
+  cl();para.push(ln)}
+ fl();cl();return '<div class="rt">'+out.join('')+'</div>'}
+const rtBar=id=>'<div class="rtb">'+[['b','<b>B</b>','عريض'],['i','<i>I</i>','مائل'],['u','<u>U</u>','تحته خط'],['h','<mark>H</mark>','تمييز'],['t','عنوان','عنوان'],['ul','• نقاط','نقاط'],['ol','1. ترقيم','ترقيم']].map(([k,l,t])=>'<button type="button" class="s" title="'+t+'" onclick="rtFmt(\''+id+'\',\''+k+'\')">'+l+'</button>').join('')+'</div>';
+function rtPv(id){const el=document.getElementById(id),pv=document.getElementById(id+'_pv');if(!el||!pv)return;pv.innerHTML=rt(el.value);pv.hidden=!el.value.trim()}
+function rtFmt(id,k){const el=document.getElementById(id);if(!el)return;const a=el.selectionStart,b=el.selectionEnd,v=el.value,inl={b:'**',i:'*',u:'__',h:'=='};
+ if(inl[k]){const m=inl[k],sel=v.slice(a,b);if(sel&&sel.length>=2*m.length&&sel.startsWith(m)&&sel.endsWith(m))el.setRangeText(sel.slice(m.length,-m.length),a,b,'select');else if(!sel){el.setRangeText(m+m,a,b,'end');el.setSelectionRange(a+m.length,a+m.length)}else el.setRangeText(m+sel+m,a,b,'select')}
+ else{const s0=v.lastIndexOf('\n',a-1)+1;let e0=v.indexOf('\n',b);if(e0<0)e0=v.length;const lines=v.slice(s0,e0).split('\n'),pre={ul:/^\s*[-•*]\s+/,ol:/^\s*\d{1,3}[.)]\s+/,t:/^\s*#{1,3}\s+/}[k],all=lines.filter(x=>x.trim()).length>0&&lines.filter(x=>x.trim()).every(x=>pre.test(x));let n=0;
+  el.setRangeText(lines.map(x=>{if(!x.trim())return x;const bare=x.replace(/^\s*(?:[-•*]|\d{1,3}[.)]|#{1,3})\s+/,'');if(all)return bare;n++;return k==='ul'?'- '+bare:k==='ol'?n+'. '+bare:'## '+bare}).join('\n'),s0,e0,'select')}
+ el.focus();el.dispatchEvent(new Event('input',{bubbles:true}));rtPv(id)}
+let LFd=null;
+function lfCur(){const e=S.lessons.find(l=>l.id===editL)||{},id=editL||'new';if(!LFd||LFd.id!==id)LFd={id,c:[...(e.cf||[])],h:[...(e.hf||[])]};return LFd}
+const fico=n=>/\.pdf$/i.test(n)?'📕':/\.docx?$/i.test(n)?'📘':/\.pptx?$/i.test(n)?'📙':/\.(png|jpe?g|webp|gif)$/i.test(n)?'🖼️':'📎';
+function attHtml(a){a=(a||[]).filter(f=>f&&typeof f.u==='string'&&MEDIA_OK.test(f.u));return a.length?'<div class="att">'+a.map(f=>/\.(png|jpe?g|webp|gif)(\?|$)/i.test(f.u)?'<a href="'+esc(f.u)+'" target="_blank" rel="noopener"><img src="'+esc(f.u)+'" alt="'+esc(f.n)+'" loading="lazy"></a>':'<a class="chip" href="'+esc(f.u)+'" target="_blank" rel="noopener">'+fico(f.n||'')+' '+esc(f.n||'ملف')+'</a>').join('')+'</div>':''}
+function lfEdit(k){return lfCur()[k].map((f,i)=>'<span class="chip">'+fico(f.n||'')+' '+esc(f.n||'ملف')+' <button type="button" class="d" style="padding:0 8px;min-height:0" onclick="lfDel(\''+k+'\','+i+')">✕</button></span>').join('')}
+function lfBox(k){lfCur();return '<div class="row" style="gap:6px;align-items:center"><label class="s" style="cursor:pointer;display:inline-block;padding:6px 12px;border-radius:10px">📎 إرفاق ملف (PDF / Word / صورة)<input type="file" hidden multiple accept="application/pdf,.pdf,.doc,.docx,.ppt,.pptx,image/*" onchange="lfUp(this,\''+k+'\')"></label><span id="lfs_'+k+'" class="mu"></span></div><div class="row" id="lf_'+k+'" style="gap:6px">'+lfEdit(k)+'</div>'}
+function lfDel(k,i){lfCur()[k].splice(i,1);document.getElementById('lf_'+k).innerHTML=lfEdit(k)}
+async function lfUp(el,k){const files=[...el.files];el.value='';const st=document.getElementById('lfs_'+k),d=lfCur();
+ for(const f0 of files){try{let f=f0;if(/^image\//.test(f.type))f=await shrink(f);else if(!/\.(pdf|docx?|pptx?)$/i.test(f.name))throw new Error('نوع الملف مش مدعوم (PDF أو Word أو صورة)');
+  if(f.size>20e6)throw new Error('الملف أكبر من 20 ميجا');const name=f.name||f0.name;st.textContent='⏳ '+name+' 0%';
+  const url=await ikUp(f,'/english-guru/files',n=>{st.textContent='⏳ '+name+' '+n+'%'});d[k].push({n:name,u:url});document.getElementById('lf_'+k).innerHTML=lfEdit(k);st.textContent=''}
+  catch(e){st.textContent='';alert('تعذّر رفع '+(f0.name||'الملف')+': '+e.message)}}}
 function stk(P){if(!P||!P.last)return 0;const td=cairoDay(),y=new Date(new Date(td+'T12:00:00Z').getTime()-864e5).toISOString().slice(0,10);return(P.last===td||P.last===y)?(P.streak||0):0}
 function say(t){try{const u=new SpeechSynthesisUtterance(t);u.lang='en-US';u.rate=.9;const v=(speechSynthesis.getVoices()||[]).find(x=>/en[-_]US/i.test(x.lang));if(v)u.voice=v;speechSynthesis.cancel();speechSynthesis.speak(u)}catch(e){}}
 function allLessons(){const o=[];S.units.forEach(u=>(u.lessons||[]).forEach((l,i)=>o.push({...l,u:u.id,ut:u.t,lv:u.lv,idx:i})));return o}
@@ -952,13 +982,14 @@ let editL=null;
 function tLs(){const e=S.lessons.find(l=>l.id===editL)||{},T=e.to;
 return `<div class="card"><h3>${e.id?'✏️ تعديل الحصة':'حصة جديدة'}</h3><div class="row"><input id="ln" type="number" placeholder="رقم الحصة" value="${esc(e.n??'')}" style="width:90px"><input id="lt" placeholder="اسم الدرس" value="${esc(e.t||'')}"><input id="ld" type="date" value="${esc(e.d||'')}"><input id="lp" type="number" placeholder="السعر" value="${esc(e.price??'')}" style="width:90px"></div>
 <div class="card" style="margin:6px 0"><b>الحصة دي لمين؟</b> <label><input type="checkbox" onchange="document.querySelectorAll('.lto').forEach(c=>c.checked=this.checked)"> الكل</label><div class="row">${S.students.map(s=>`<label><input type="checkbox" class="lto" value="${s.id}" ${(e.id&&!T)||(T&&T.includes(s.id))?'checked':''}> ${esc(s.name)}</label>`).join('')||'<span class="mu">أضف طلاباً أولاً</span>'}</div></div>
-<textarea id="lc" placeholder="المحتوى / الملخص / رابط الشرح والملفات">${esc(e.c||'')}</textarea><textarea id="lh" placeholder="الواجب المطلوب لهذه الحصة">${esc(e.h||'')}</textarea>
+<b>📘 محتوى الحصة</b>${rtBar('lc')}<textarea id="lc" oninput="rtPv('lc')" placeholder="اكتبي المحتوى: سطر لكل نقطة، واستخدمي الأزرار فوق للتنسيق">${esc(e.c||'')}</textarea><div class="rtp" id="lc_pv" ${e.c?'':'hidden'}>${rt(e.c)}</div>${lfBox('c')}
+<b style="display:block;margin-top:10px">📝 الواجب</b>${rtBar('lh')}<textarea id="lh" oninput="rtPv('lh')" placeholder="الواجب المطلوب لهذه الحصة">${esc(e.h||'')}</textarea><div class="rtp" id="lh_pv" ${e.h?'':'hidden'}>${rt(e.h)}</div>${lfBox('h')}
 <textarea id="lk" placeholder="المهارات المطلوب إتقانها (مهارة في كل سطر)">${esc((e.skills||[]).join('\n'))}</textarea>
 <div class="row"><button onclick="addLs()">${e.id?'حفظ التعديل':'حفظ الحصة'}</button>${e.id?'<button class="s" onclick="editL=null;render()">إلغاء</button>':''}</div></div>`+
-S.lessons.map(l=>`<div class="card"><div class="top"><h3>حصة ${esc(l.n)}: ${esc(l.t)}</h3><div class="row" style="margin:0"><button class="s" onclick="editLs('${l.id}')">✏️ Edit</button><button class="d" onclick="delLs('${l.id}')">حذف</button></div></div><span class="mu">${esc(l.d)} · ${esc(l.p)} ج · 👥 ${l.to?ST(l).map(s=>esc(s.name)).join('، ')||'—':'كل الطلاب'}</span><p>${esc(l.c)}</p><p><b>الواجب:</b> ${esc(l.h)||'—'}</p>${(l.skills||[]).length?`<div class="row">${l.skills.map(k=>`<span class="chip">🎯 ${esc(k)}</span>`).join('')}</div>`:''}</div>`).join('')}
+S.lessons.map(l=>`<div class="card"><div class="top"><h3>حصة ${esc(l.n)}: ${esc(l.t)}</h3><div class="row" style="margin:0"><button class="s" onclick="editLs('${l.id}')">✏️ Edit</button><button class="d" onclick="delLs('${l.id}')">حذف</button></div></div><span class="mu">${esc(l.d)} · ${esc(l.p)} ج · 👥 ${l.to?ST(l).map(s=>esc(s.name)).join('، ')||'—':'كل الطلاب'}</span>${rt(l.c)}${attHtml(l.cf)}<div><b>الواجب:</b></div>${l.h?rt(l.h):'—'}${attHtml(l.hf)}${(l.skills||[]).length?`<div class="row">${l.skills.map(k=>`<span class="chip">🎯 ${esc(k)}</span>`).join('')}</div>`:''}</div>`).join('')}
 function addLs(){const t=$('#lt').value.trim();if(!t)return;const to=[...document.querySelectorAll('.lto:checked')].map(x=>x.value);if(!to.length)return alert('اختار طالباً واحداً على الأقل');
- const skills=$('#lk').value.split('\n').map(x=>x.trim()).filter(Boolean),o={to,n:$('#ln').value||S.lessons.length+1,t,d:$('#ld').value,p:$('#lp').value||0,price:+$('#lp').value||0,c:$('#lc').value,h:$('#lh').value,skills};
- const e=S.lessons.find(l=>l.id===editL);if(e)Object.assign(e,o);else S.lessons.push({id:uid(),...o});editL=null;save()}
+ const skills=$('#lk').value.split('\n').map(x=>x.trim()).filter(Boolean),o={to,n:$('#ln').value||S.lessons.length+1,t,d:$('#ld').value,p:$('#lp').value||0,price:+$('#lp').value||0,c:$('#lc').value,h:$('#lh').value,skills,cf:lfCur().c.slice(),hf:lfCur().h.slice()};
+ const e=S.lessons.find(l=>l.id===editL);if(e)Object.assign(e,o);else S.lessons.push({id:uid(),...o});editL=null;LFd=null;save()}
 function editLs(id){editL=id;tab='ls';render();window.scrollTo(0,0)}
 function delLs(id){dlg('حذف الحصة؟',()=>{S.lessons=S.lessons.filter(l=>l.id!==id);save()})}
 function tHw(){return S.lessons.map(l=>`<div class="card"><h3>حصة ${esc(l.n)}: ${esc(l.t)}</h3>${ST(l).map(s=>{const h=S.hw[l.id]?.[s.id];return `<div class="row" style="border-top:1px solid var(--bd);padding-top:6px"><b style="min-width:110px">${esc(s.name)}</b>${h?`<span class="b ok">سلّم</span><span class="mu">${esc(h.file||'')}</span><div style="flex-basis:100%">${esc(h.text||'')}</div>
@@ -993,11 +1024,11 @@ function studentV(){const s=stu(who.id);if(!s){logout();return''}
 function sLs(){const td=new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,10),A=LS(who.id),
  dn=l=>l.d?new Date(l.d+'T00:00').toLocaleDateString('ar-EG',{weekday:'long',day:'numeric',month:'long'}):'بدون تاريخ',
  done=A.filter(l=>l.d&&l.d<td).sort((a,b)=>b.d.localeCompare(a.d)),cur=A.filter(l=>!l.d||l.d===td).sort((a,b)=>(+a.n||0)-(+b.n||0)),up=A.filter(l=>l.d&&l.d>td).sort((a,b)=>a.d.localeCompare(b.d)),
- card=(l,t,c)=>`<div class="card"><div class="top"><h3>حصة ${esc(l.n)}: ${esc(l.t)}</h3><span class="b ${c}">${t}</span></div><span class="mu">📅 ${dn(l)}</span><p>${esc(l.c)}</p></div>`,
+ card=(l,t,c)=>`<div class="card"><div class="top"><h3>حصة ${esc(l.n)}: ${esc(l.t)}</h3><span class="b ${c}">${t}</span></div><span class="mu">📅 ${dn(l)}</span>${rt(l.c)}${attHtml(l.cf)}</div>`,
  sec=(h,L,t,c,em)=>`<h3 style="margin-top:18px">${h} <span class="mu">(${L.length})</span></h3>${L.map(l=>card(l,t,c)).join('')||`<div class="card mu">${em}</div>`}`;
  if(!A.length)return '<div class="card mu">لا توجد حصص بعد</div>';
  return sec('📍 Current · الحالية',cur,'Today','ok','مفيش حصة النهاردة'+(up[0]?' — الحصة الجاية '+dn(up[0]):''))+sec('⏭️ Upcoming · القادمة',up,'Soon','','مفيش حصص قادمة لسه')+sec('✅ Completed · المنتهية',done,'Done','','مفيش حصص منتهية لسه')}
-function sHw(s){return LS(s.id).map(l=>{const h=S.hw[l.id]?.[s.id];return `<div class="card"><h3>حصة ${esc(l.n)}: ${esc(l.t)}</h3><p><b>الواجب:</b> ${esc(l.h)||'—'}</p>
+function sHw(s){return LS(s.id).map(l=>{const h=S.hw[l.id]?.[s.id];return `<div class="card"><h3>حصة ${esc(l.n)}: ${esc(l.t)}</h3><div><b>الواجب:</b></div>${l.h?rt(l.h):'—'}${attHtml(l.hf)}
 ${h?`<span class="b ok">تم التسليم</span> ${h.file?`<span class="mu">${esc(h.file)}</span>`:''}<p>${esc(h.text||'')}</p>${h.grade!==undefined&&h.grade!==''?`<p>الدرجة: <b>${esc(h.grade)}</b> — ${esc(h.fb||'')}</p>`:'<p class="mu">بانتظار التصحيح</p>'}`:
 `<textarea id="t${l.id}" placeholder="اكتب حل الواجب هنا"></textarea><div class="row"><input type="file" id="fl${l.id}" accept="image/*,.pdf"><button onclick="sub('${l.id}','${s.id}')">رفع الحل</button></div>`}</div>`}).join('')||'<div class="card mu">لا توجد واجبات</div>'}
 function sub(l,s){const t=$('#t'+l).value.trim(),f=$('#fl'+l).files[0];if(!t&&!f)return alert('اكتب الحل أو ارفع ملفاً');(S.hw[l]=S.hw[l]||{})[s]={text:t,file:f?f.name:'',at:Date.now()};dclr('t'+l);save()}
