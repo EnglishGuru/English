@@ -350,7 +350,7 @@ function bkCard(){return `<div class="card"><h3>💾 النسخ الاحتياط
 async function bkDown(){const e=$('#bke');e.textContent='جاري التجهيز…';try{const d=await rpc('backup_dump',{code:CODE});dlBlob('English-Guru-backup-'+new Date().toISOString().slice(0,10)+'.json',new Blob([JSON.stringify(d)],{type:'application/json'}));e.textContent='تم ✅ ('+d.rec.length+' سجل)'}catch(x){e.textContent='تعذّر: '+x.message}}
 async function bkRest(){const f=$('#bkf').files[0],e=$('#bke');if(!f)return alert('اختار ملف النسخة الأول');
  dlg('الاسترجاع هيضيف ويحدّث البيانات من الملف. متأكدة؟',async()=>{e.textContent='جاري الاسترجاع…';try{const t=f.name.endsWith('.gz')?await new Response(f.stream().pipeThrough(new DecompressionStream('gzip'))).text():await f.text();const n=await rpc('restore_dump',{code:CODE,dump:JSON.parse(t)});e.textContent='تم استرجاع '+n+' سجل ✅';await refresh()}catch(x){e.textContent='تعذّر: '+x.message}})}
-const BUILD='v2026.11.18-exams2';
+const BUILD='v2026.11.19-xmserver';
 const GR=[['','🎒 Student · طالب'],['grad','🎓 Graduate · خريج'],['uni','🏛️ University · جامعي'],['tchr','🧑‍🏫 Trainee Teacher · مدرس تحت التدريب']];
 function setGrp(id,v){const t=stu(id);if(!t)return;t.grp=v;t.pc=v?'':(t.pc||rc('PAR-'));save()}
 const pwB=(id,f)=>{const t=stu(id),c=t&&t[f];return c?`<div class="mu" style="margin-top:4px;font-size:.78rem">${PW.has(String(c).toUpperCase())?'🔐 عنده كلمة سر':'⏳ لسه ما اختارش'} <button class="s" style="padding:2px 8px;min-height:0;font-size:.74rem" onclick="resetPw('${id}','${f}')">إعادة تعيين</button></div>`:''};
@@ -478,7 +478,7 @@ function adCheck(){const A=AD,c=A.q[A.pos],it=c.it;let ok;
  if(it.t==='essay'){const t=(A.txt||'').trim();if(A.exam&&t)(A.essays=A.essays||[]).push({q:it.q,x:t});adNext();return}
  if(['mcq','fill','listen'].includes(it.t)){if(A.sel===null)return;ok=A.sel===it.a}
  else if(it.t==='build'){if(!A.built.length)return;ok=A.built.map(i=>A.pool.find(p=>p.i===i).w).join(' ').toLowerCase()===it.w.join(' ').toLowerCase()}
- if(A.exam){adScore(ok,false);adNext();return}
+ if(A.exam){if(['mcq','fill','listen'].includes(it.t))(A.ans=A.ans||{})[c.ref]=A.sel;adNext();return}
  adScore(ok,true);A.st=ok?'right':'wrong';render();if(ok&&it.say)say(it.say)}
 function adNext(){const A=AD;A.pos++;if(A.pos>=A.q.length)return A.place?plNext():adFinish();adInit();render()}
 async function adFinish(){if(AD.exam)return xmFinish();const A=AD,acc=A.total?Math.round(100*A.ok/A.total):100;A.fin={load:true};render();
@@ -717,21 +717,20 @@ function sXm(s){const L=S.xms.slice().sort((a,b)=>(b.open||b.at||0)-(a.open||a.a
   return `<div class="card xmc ${st.k==='open'?'on':''}"><div class="top"><h3>${T[0]} ${esc(e.t)}</h3><span class="b">${T[1]}</span></div><div class="mu">${e.n||0} سؤال${e.mins?' · ⏱ '+e.mins+' دقيقة':''} · النجاح ${e.pass||60}%${e.close?' · يقفل '+fdt(e.close):''}</div>${b}</div>`}).join('')||'<div class="card mu" style="text-align:center">مفيش امتحانات حالياً 🎉</div>')}
 function xmGo(id){const e=S.xms.find(x=>x.id===id);if(!e)return;dlg('ابدأ امتحان "'+e.t+'"؟\n'+(e.mins?'مدته '+e.mins+' دقيقة والوقت بيبدأ دلوقتي. ':'')+'مفيش رجوع للأسئلة، والإجابات مش بتظهر غير في الآخر.',()=>xmStart(id))}
 async function xmStart(id){try{const r=await rpc('xm_open',{tok:CODE,p_xid:id}),x=r.x,items=[];
-  x.lessons.forEach((l,si)=>l.items.forEach(it=>{if(it.t!=='learn')items.push({it,tries:0,sec:l.lv||('S'+(si+1)),st:l.t})}));
+  const names={};x.lessons.forEach((l,si)=>{names[l.lv||('S'+(si+1))]=l.t;l.items.forEach((it,ii)=>{if(it.t!=='learn')items.push({it,tries:0,sec:l.lv||('S'+(si+1)),st:l.t,ref:si+'.'+ii})})});
   if(!items.length)return alert('الامتحان ده مفيهوش أسئلة');
-  AD={lid:'exam',title:x.t,exam:{xid:id,start:r.start,mins:+x.mins||0,ty:x.ty,pass:+x.pass||60,secs:{},end:r.start+(+x.mins||0)*6e4,lvOrder:x.lessons.map(l=>l.lv).filter(Boolean)},q:items,pos:0,ok:0,total:0,miss:{},hits:{},st:'ask',fin:null};
+  AD={lid:'exam',title:x.t,exam:{xid:id,names,start:r.start,mins:+x.mins||0,ty:x.ty,pass:+x.pass||60,secs:{},end:r.start+(+x.mins||0)*6e4,lvOrder:x.lessons.map(l=>l.lv).filter(Boolean)},q:items,pos:0,ok:0,total:0,miss:{},hits:{},st:'ask',fin:null};
   tab='xm';adInit();if(AD.exam.mins)AD.tmr=setInterval(xmTick,1000);render();if(AD.exam.mins)xmTick()}
  catch(e){alert(({done:'خلصت الامتحان ده قبل كده',not_open:'الامتحان لسه ما اتفتحش',closed:'الامتحان اتقفل',expired:'وقت الامتحان خلص. كلّم المعلم',not_available:'الامتحان مش متاح لك'})[e.message]||('تعذّر: '+e.message))}}
 function xmTick(){const A=AD;if(!A||!A.exam||A.fin){if(A&&A.tmr)clearInterval(A.tmr);return}if(!A.exam.mins)return;const left=A.exam.end-Date.now(),el=document.getElementById('tmr');if(el){const m=Math.max(0,Math.floor(left/6e4)),sc=Math.max(0,Math.floor(left/1e3)%60);el.textContent='⏱ '+m+':'+String(sc).padStart(2,'0')}if(left<=0)xmFinish()}
 async function xmFinish(){const A=AD;if(!A||!A.exam||A.fin)return;if(A.tmr)clearInterval(A.tmr);A.fin={load:true};
  {const cur=A.q[A.pos];if(cur&&cur.it.t==='essay'&&(A.txt||'').trim())(A.essays=A.essays||[]).push({q:cur.it.q,x:A.txt.trim()})}
- while(A.pos<A.q.length){const c=A.q[A.pos];if(c.it.t==='essay'){A.pos++;continue}const e=A.exam.secs[c.sec]=A.exam.secs[c.sec]||{ok:0,total:0,t:c.st};e.total++;A.total++;A.pos++}
- const sec={};Object.entries(A.exam.secs).forEach(([k,v])=>sec[k]={ok:v.ok,total:v.total});render();
- try{const r=await rpc('xm_submit',{tok:CODE,p_xid:A.exam.xid,p_ok:A.ok,p_total:A.total,p_sec:sec});S.xrs=S.xrs.filter(x=>x.xid!==r.xid);S.xrs.push(r);let placed=null;
+ render();
+ try{const r=await rpc('xm_submit',{tok:CODE,p_xid:A.exam.xid,p_ans:A.ans||{}}),sec=r.sec||{};S.xrs=S.xrs.filter(x=>x.xid!==r.xid);S.xrs.push(r);let placed=null;
   if(A.exam.ty==='placement'&&A.exam.lvOrder.length){const order=['A1','A2','B1','B2'].filter(l=>sec[l]);placed=order[order.length-1]||null;for(const l of order){if(sec[l].total&&sec[l].ok/sec[l].total<.75){placed=l;break}}
    if(placed&&!(S.prog[who.id]||{}).place){try{const pr=await rpc('place_done',{tok:CODE,p_lvl:placed});if(pr&&pr.prog)S.prog[who.id]=pr.prog}catch(e){}}}
   if(A.essays&&A.essays.length){A.essays.forEach(z=>S.wr.push({id:uid(),sid:who.id,t:'📝 '+A.title+' — '+String(z.q).slice(0,80),k:'Exam essay',l:'',x:z.x,fid:'',fn:'',at:Date.now(),rv:false,g:'',fb:''}));save()}
-  A.fin={xm:true,essays:(A.essays||[]).length,r,sec,placed,names:Object.fromEntries(Object.entries(A.exam.secs).map(([k,v])=>[k,v.t]))}}
+  A.fin={xm:true,essays:(A.essays||[]).length,r,sec,placed,names:A.exam.names||{}}}
  catch(e){A.fin={err:({done:'اتسلّم الامتحان قبل كده',not_started:'الامتحان ما بدأش'})[e.message]||('تعذّر تسليم الامتحان: '+e.message)}}render()}
 function xmResHtml(f){const r=f.r;return `<div class="fin"><div class="big">${r.pass?'🎉':'📘'}</div><h2>${r.pass?'مبروك! نجحت':'خلصت الامتحان'}</h2><div class="adh" style="margin-top:14px"><div class="stc ${r.pass?'hot':''}"><span class="ic">🎯</span><b>${r.pct}%</b><span>النتيجة</span></div><div class="stc"><span class="ic">✅</span><b>${r.ok}/${r.total}</b><span>صح</span></div></div>${f.placed?`<p>🧭 مستواك: <b>${f.placed}</b></p>`:''}${r.late?'<p class="mu">⚠️ اتسلّم بعد الوقت المحدد.</p>':''}${f.essays?`<p class="mu">✍️ المقال اتبعت للمعلم عشان يراجعه ويقيّمه (مش داخل في النسبة).</p>`:''}<div class="card" style="text-align:start">${Object.entries(f.sec).map(([k,v])=>`<div class="top"><span>${esc(f.names[k]||k)}</span><span class="b">${v.ok}/${v.total}</span></div>`).join('')}</div></div>`}
 // ---------------- teacher
@@ -787,10 +786,8 @@ function vExam(u){if(!u||typeof u!=='object'||Array.isArray(u))return 'لازم 
    if(t==='learn'){if(!S2(it.w)||!S2(it.ar))er.push(m+'learn محتاج w و ar')}
    else if(t==='mcq'||t==='fill'){if(!S2(it.q))er.push(m+'ناقص q (نص السؤال)');else if(!opt)er.push(m+'o لازم 2 لـ 5 اختيارات نصية');else if(!isI(it.a,it.o.length))er.push(m+'a لازم رقم الإجابة الصح بادئ من 0 (0 = أول اختيار)')}
    else if(t==='listen'){if(!S2(it.say))er.push(m+'ناقص say');else if(!opt)er.push(m+'o لازم 2 لـ 5 اختيارات');else if(!isI(it.a,it.o.length))er.push(m+'a لازم رقم صحيح من 0')}
-   else if(t==='build'){if(!S2(it.ar)||!Array.isArray(it.w)||it.w.length<2||it.w.length>12||!it.w.every(S2))er.push(m+'build محتاج ar و w (2-12 كلمة)');else if(it.extra&&!(Array.isArray(it.extra)&&it.extra.every(S2)))er.push(m+'extra لازم قايمة نصوص')}
-   else if(t==='essay'){if(!S2(it.q))er.push(m+'essay محتاج q (موضوع الكتابة)')}
-   else if(t==='match'){if(!Array.isArray(it.pairs)||it.pairs.length<2||it.pairs.length>8||!it.pairs.every(q=>Array.isArray(q)&&q.length===2&&S2(q[0])&&S2(q[1])))er.push(m+'match محتاج pairs (2-8 أزواج)')}
-   else er.push(m+'نوع غير معروف ('+t+') — المسموح: mcq, fill, essay (وكمان listen, build, match, learn)')})});
+   else if(t==='build'||t==='match')er.push(m+'النوع '+t+' مش مسموح في الامتحانات (المسموح: mcq, fill, listen, essay)')
+   else er.push(m+'نوع غير معروف ('+t+') — المسموح: mcq, fill, listen, essay, learn')})});
  return er.length?er.slice(0,6).join('\n')+(er.length>6?'\n... و'+(er.length-6)+' مشاكل تانية':''):''}
 function xmImport(){let u;try{u=parseTol($('#xmj').value)}catch(e){return alert('الـ JSON مش صالح: '+e.message)}xmFromJson(u,$('#xit').value)}
 async function xmGen(){const o=$('#xmo');o.hidden=false;const ty=$('#xgt').value,lv=$('#xgl').value,tp=$('#xgp').value||'general',n=$('#xgn').value;
