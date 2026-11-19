@@ -350,7 +350,7 @@ function bkCard(){return `<div class="card"><h3>💾 النسخ الاحتياط
 async function bkDown(){const e=$('#bke');e.textContent='جاري التجهيز…';try{const d=await rpc('backup_dump',{code:CODE});dlBlob('English-Guru-backup-'+new Date().toISOString().slice(0,10)+'.json',new Blob([JSON.stringify(d)],{type:'application/json'}));e.textContent='تم ✅ ('+d.rec.length+' سجل)'}catch(x){e.textContent='تعذّر: '+x.message}}
 async function bkRest(){const f=$('#bkf').files[0],e=$('#bke');if(!f)return alert('اختار ملف النسخة الأول');
  dlg('الاسترجاع هيضيف ويحدّث البيانات من الملف. متأكدة؟',async()=>{e.textContent='جاري الاسترجاع…';try{const t=f.name.endsWith('.gz')?await new Response(f.stream().pipeThrough(new DecompressionStream('gzip'))).text():await f.text();const n=await rpc('restore_dump',{code:CODE,dump:JSON.parse(t)});e.textContent='تم استرجاع '+n+' سجل ✅';await refresh()}catch(x){e.textContent='تعذّر: '+x.message}})}
-const BUILD='v2026.11.19-xmserver';
+const BUILD='v2026.11.19-media';
 const GR=[['','🎒 Student · طالب'],['grad','🎓 Graduate · خريج'],['uni','🏛️ University · جامعي'],['tchr','🧑‍🏫 Trainee Teacher · مدرس تحت التدريب']];
 function setGrp(id,v){const t=stu(id);if(!t)return;t.grp=v;t.pc=v?'':(t.pc||rc('PAR-'));save()}
 const pwB=(id,f)=>{const t=stu(id),c=t&&t[f];return c?`<div class="mu" style="margin-top:4px;font-size:.78rem">${PW.has(String(c).toUpperCase())?'🔐 عنده كلمة سر':'⏳ لسه ما اختارش'} <button class="s" style="padding:2px 8px;min-height:0;font-size:.74rem" onclick="resetPw('${id}','${f}')">إعادة تعيين</button></div>`:''};
@@ -427,16 +427,38 @@ function regV(){const R=REGST,d=R.d,e=R.err||{},st=R.step,
 const LVN={A1:'Beginner',A2:'Elementary',B1:'Intermediate',B2:'Upper-Intermediate'},UCOL=['#7c3aed','#e0509f','#1a8cff','#12a58b','#ff8a3d','#5b43d6'],TYI={learn:'⭐',match:'🔗',build:'🧩',listen:'🎧',grammar:'📘',review:'🔁',check:'🏆'};
 let AD=null,adLv='',CN_PREV=null,CN_EDIT=null;
 const shuf=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a},cairoDay=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'Africa/Cairo'}).format(new Date());
+const CLD={cloud:'bfxdc2co',preset:'english-guru'},IK={ep:'https://ik.imagekit.io/englishguru',pub:'public_C641aSGE7iZLxBwuZgFco6pMtNo='},
+ MEDIA_OK=/^https:\/\/(res\.cloudinary\.com\/bfxdc2co\/|ik\.imagekit\.io\/englishguru\/)/;
+const mediaErr=it=>{for(const f of ['au','vd','im']){const v=it&&it[f];if(v!==undefined&&v!==''&&!(typeof v==='string'&&MEDIA_OK.test(v)))return f+' لازم يبقى رابط مرفوع من المنصة (Cloudinary أو ImageKit)'}return ''};
+function adMedia(it){let h='';const ok=u=>typeof u==='string'&&MEDIA_OK.test(u);
+ if(ok(it.im))h+=`<img src="${esc(it.im)}" alt="" loading="lazy" style="display:block;max-width:100%;max-height:260px;margin:10px auto;border-radius:14px">`;
+ if(ok(it.vd))h+=`<video src="${esc(it.vd)}" controls playsinline preload="metadata" style="display:block;width:100%;max-height:300px;margin:10px auto;border-radius:14px;background:#000"></video>`;
+ if(ok(it.au))h+=`<audio src="${esc(it.au)}" controls preload="none" style="display:block;width:100%;margin:10px 0"></audio>`;
+ return h}
+function xhrUp(url,fd,onp){return new Promise((res,rej)=>{const x=new XMLHttpRequest();x.open('POST',url);x.upload.onprogress=e=>{if(e.lengthComputable&&onp)onp(Math.round(100*e.loaded/e.total))};
+ x.onload=()=>{let j={};try{j=JSON.parse(x.responseText)}catch(e){}if(x.status>=200&&x.status<300)res(j);else rej(new Error((j.error&&j.error.message)||j.message||('HTTP '+x.status)))};x.onerror=()=>rej(new Error('مشكلة في الاتصال'));x.send(fd)})}
+async function cldUp(file,onp){const fd=new FormData();fd.append('file',file);fd.append('upload_preset',CLD.preset);const j=await xhrUp('https://api.cloudinary.com/v1_1/'+CLD.cloud+'/video/upload',fd,onp);if(!j.secure_url)throw new Error('الرفع ما رجّعش رابط');return j.secure_url}
+async function ikUp(file,folder,onp){const r=await fetch(SB+'/functions/v1/ik-sign',{method:'POST',headers:{apikey:SBK,Authorization:'Bearer '+SBK,'Content-Type':'application/json'},body:JSON.stringify({code:CODE})});
+ if(!r.ok){let m='';try{m=(await r.json()).error||''}catch(e){}throw new Error(r.status===404?'دالة ik-sign لسه ما اتنشرتش':'تعذّر التوقيع ('+r.status+(m?' — '+m:'')+')')}
+ const a=await r.json(),fd=new FormData();fd.append('file',file);fd.append('fileName',file.name||'file');fd.append('publicKey',IK.pub);fd.append('signature',a.signature);fd.append('expire',a.expire);fd.append('token',a.token);fd.append('folder',folder);fd.append('useUniqueFileName','true');
+ const j=await xhrUp('https://upload.imagekit.io/api/v1/files/upload',fd,onp);if(!j.url)throw new Error('الرفع ما رجّعش رابط');return j.url}
+async function mUp(el,path,f){let file=el.files&&el.files[0];el.value='';if(!file)return;const st=document.getElementById('ms'+path.replace(/\./g,'_')),say=t=>{if(st)st.textContent=t};
+ try{if(f==='im'){if(!/^image\//.test(file.type))return alert('اختاري صورة');file=await shrink(file);if(file.size>10e6)return alert('الصورة أكبر من 10 ميجا')}
+  else if(f==='au'){if(!/^audio\//.test(file.type)&&!/\.(mp3|m4a|wav|ogg)$/i.test(file.name))return alert('اختاري ملف صوت (mp3 مثلاً)');if(file.size>20e6)return alert('الصوت أكبر من 20 ميجا')}
+  else{if(!/^video\//.test(file.type))return alert('اختاري فيديو (mp4)');if(file.size>95e6)return alert('الفيديو أكبر من 95 ميجا. صغّريه الأول (720p كفاية)')}
+  say('⏳ 0%');const pr=n=>say('⏳ '+n+'%'),url=f==='vd'?await cldUp(file,pr):await ikUp(file,'/english-guru/'+(f==='au'?'audio':'images'),pr);
+  edSet(path+'.'+f,url);render()}catch(e){say('');alert('تعذّر الرفع: '+e.message)}}
+function mDel(path,f){delete path.split('.').reduce((o,k)=>o[k],ED.u)[f];render()}
 function stk(P){if(!P||!P.last)return 0;const td=cairoDay(),y=new Date(new Date(td+'T12:00:00Z').getTime()-864e5).toISOString().slice(0,10);return(P.last===td||P.last===y)?(P.streak||0):0}
 function say(t){try{const u=new SpeechSynthesisUtterance(t);u.lang='en-US';u.rate=.9;const v=(speechSynthesis.getVoices()||[]).find(x=>/en[-_]US/i.test(x.lang));if(v)u.voice=v;speechSynthesis.cancel();speechSynthesis.speak(u)}catch(e){}}
 function allLessons(){const o=[];S.units.forEach(u=>(u.lessons||[]).forEach((l,i)=>o.push({...l,u:u.id,ut:u.t,lv:u.lv,idx:i})));return o}
 function vUnit(u){if(!u||typeof u!=='object'||Array.isArray(u))return 'الوحدة لازم تبقى كائن JSON واحد';if(!String(u.t||'').trim())return 'الوحدة محتاجة عنوان (t)';const L=u.lessons;if(!Array.isArray(L)||!L.length||L.length>14)return 'lessons لازم تبقى قايمة من 1 لـ 14 درس';
  const S2=x=>typeof x==='string'&&x.trim(),isI=(n,m)=>Number.isInteger(n)&&n>=0&&n<m;
  for(const [i,l] of L.entries()){const n='الدرس '+(i+1);if(!S2(l.t))return n+': محتاج عنوان (t)';if(!Array.isArray(l.items)||l.items.length<2||l.items.length>16)return n+': items من 2 لـ 16 تمرين';
-  for(const [j,it] of l.items.entries()){const m=n+' / تمرين '+(j+1)+': ';
+  for(const [j,it] of l.items.entries()){const m=n+' / تمرين '+(j+1)+': ';{const me=mediaErr(it);if(me)return m+me}
    if(it.t==='learn'){if(!S2(it.w)||!S2(it.ar))return m+'learn محتاج w و ar'}
    else if(it.t==='mcq'||it.t==='fill'){if(!S2(it.q)||!Array.isArray(it.o)||it.o.length<2||it.o.length>5||!it.o.every(S2)||!isI(it.a,it.o.length))return m+'محتاج q و o (2-5 اختيارات) و a صحيح'}
-   else if(it.t==='listen'){if(!S2(it.say)||!Array.isArray(it.o)||it.o.length<2||it.o.length>5||!it.o.every(S2)||!isI(it.a,it.o.length))return m+'listen محتاج say و o و a'}
+   else if(it.t==='listen'){if((!S2(it.say)&&!S2(it.au))||!Array.isArray(it.o)||it.o.length<2||it.o.length>5||!it.o.every(S2)||!isI(it.a,it.o.length))return m+'listen محتاج say (أو صوت مرفوع) و o و a'}
    else if(it.t==='build'){if(!S2(it.ar)||!Array.isArray(it.w)||it.w.length<2||it.w.length>10||!it.w.every(S2)||(it.extra&&!(Array.isArray(it.extra)&&it.extra.every(S2))))return m+'build محتاج ar و w (2-10 كلمات)'}
    else if(it.t==='match'){if(!Array.isArray(it.pairs)||it.pairs.length<2||it.pairs.length>6||!it.pairs.every(q=>Array.isArray(q)&&q.length===2&&S2(q[0])&&S2(q[1])))return m+'match محتاج pairs (2-6 أزواج)'}
    else return m+'نوع غير معروف: '+it.t}}return ''}
@@ -464,7 +486,7 @@ function adInit(){const A=AD,c=A.q[A.pos];if(!c)return;const it=c.it;A.st='ask';
  if(it.t==='build')A.pool=shuf([...it.w,...(it.extra||[])].map((w,i)=>({w,i})));
  if(it.t==='match'){A.L=shuf(it.pairs.map((p,i)=>({t:p[0],i})));A.R=shuf(it.pairs.map((p,i)=>({t:p[1],i})))}
  if(['mcq','fill','listen'].includes(it.t))A.O=shuf(it.o.map((t,i)=>({t,i})));
- if(it.t==='listen'||it.t==='learn')setTimeout(()=>say(it.say||it.w),300)}
+ if((it.t==='listen'&&!it.au&&it.say)||it.t==='learn')setTimeout(()=>say(it.say||it.w),300)}
 const adKey=it=>String(it.w&&it.t==='build'?it.w.join(' '):it.q||it.say||it.w||(it.pairs&&it.pairs[0][0])||'?').slice(0,70);
 function adScore(ok,requeue){const A=AD,c=A.q[A.pos],k=adKey(c.it);if(A.exam){const e=A.exam.secs[c.sec]=A.exam.secs[c.sec]||{ok:0,total:0,t:c.st};e.total++;if(ok)e.ok++}if(c.tries===0){A.total++;if(ok){A.ok++;A.hits[k]=1}else A.miss[k]=1}if(!ok&&requeue&&!A.place&&c.tries<2)A.q.push({it:c.it,tries:c.tries+1})}
 function essWc(el){const n=(el.value.trim().match(/\S+/g)||[]).length,d=document.getElementById('essw');if(d)d.textContent=n+' words'}
@@ -504,7 +526,7 @@ function adV(){const A=AD,c=A.q[A.pos],head=(p)=>`<div class="plh"><button class
  const opts=()=>A.O.map(o=>{let k='opt';if(A.st==='ask'&&A.sel===o.i)k+=' sel';if(A.st!=='ask'){if(o.i===it.a)k+=' ok';else if(A.sel===o.i)k+=' no'}return `<button class="${k}" onclick="adPick(${o.i})"><span dir="auto">${esc(o.t)}</span></button>`}).join('');
  if(it.t==='learn')body=`<div class="lc3"><div class="em">${esc(it.em||'📘')}</div><div class="w">${esc(it.w)}</div>${spk(it.w)}<div class="ar">${esc(it.ar)}</div></div>`;
  else if(it.t==='mcq')body=`<h2 style="margin:16px 0" dir="auto">${esc(it.q)} ${it.say?spk(it.say):''}</h2>${opts()}`;
- else if(it.t==='listen')body=`<h2 style="margin:16px 0">اسمع واختار المعنى</h2><div style="text-align:center;margin:10px 0">${spk(it.say)}</div>${opts()}`;
+ else if(it.t==='listen')body=`<h2 style="margin:16px 0">اسمع واختار المعنى</h2><div style="text-align:center;margin:10px 0">${it.au||!it.say?'':spk(it.say)}</div>${opts()}`;
  else if(it.t==='fill')body=`<h2 style="margin:16px 0">أكمل الجملة</h2><div class="lc3" style="padding:10px"><div class="w" style="font-size:1.6rem">${esc(it.q).replace('___','<span style="border-bottom:3px solid var(--pr);padding:0 22px">'+(A.sel!==null?esc(it.o[A.sel]):'&nbsp;')+'</span>')}</div></div>${opts()}`;
  else if(it.t==='essay')body=`<h2 style="margin:16px 0">✍️ اكتب</h2><div class="lc3" style="padding:10px"><div dir="auto" style="font-size:1.1rem">${esc(it.q)}</div></div><textarea id="essx" dir="ltr" placeholder="Write your answer here..." oninput="AD.txt=this.value;essWc(this)" style="width:100%;min-height:170px;text-align:left">${esc(A.txt||'')}</textarea><div class="mu" id="essw" dir="ltr">0 words</div>`;
  else if(it.t==='build')body=`<h2 style="margin:16px 0">رتّب الكلمات</h2><div class="lc3" style="padding:6px"><div class="ar" style="font-size:1.4rem;color:var(--tx)">${esc(it.ar)}</div></div><div class="bw">${A.built.map(i=>`<button class="wd" onclick="adWord(${i})">${esc(A.pool.find(p=>p.i===i).w)}</button>`).join('')}</div><div class="bw pool">${A.pool.map(p=>`<button class="wd ${A.built.includes(p.i)?'used':''}" onclick="adWord(${p.i})">${esc(p.w)}</button>`).join('')}</div>`;
@@ -512,7 +534,7 @@ function adV(){const A=AD,c=A.q[A.pos],head=(p)=>`<div class="plh"><button class
  let foot;const ans=it.t==='build'?it.w.join(' '):it.t==='match'?'':esc(it.o?it.o[it.a]:'');
  if(A.st==='ask')foot=`<div><button class="go" ${it.t==='match'?'disabled':''} onclick="adCheck()">${it.t==='learn'||A.exam?'التالي':'تحقق'}</button></div>`;
  else foot=`<div><b class="fb">${A.st==='right'?'✅ صح! أحسنت':'❌ مش دقيق'}</b>${A.st==='wrong'?`<p style="margin:0 0 10px">الإجابة الصحيحة: <b dir="ltr">${esc(ans)}</b></p>`:''}<button class="go" onclick="adNext()">متابعة</button></div>`;
- return `<div class="pl">${head(pct)}<div class="plb">${body}</div><div class="plf ${A.st==='ask'?'':A.st}">${foot}</div></div>`}
+ return `<div class="pl">${head(pct)}<div class="plb">${adMedia(it)}${body}</div><div class="plf ${A.st==='ask'?'':A.st}">${foot}</div></div>`}
 // ---------------- teacher: content tools
 const SEED=[{lv:'A1',n:1,t:'Hello! — التحيات',em:'👋',col:'#7c3aed',lessons:[
 {t:'Learn: Greetings',ty:'learn',items:[{t:'learn',w:'Hello',ar:'مرحباً',em:'👋'},{t:'learn',w:'Good morning',ar:'صباح الخير',em:'🌅'},{t:'learn',w:'Good evening',ar:'مساء الخير',em:'🌆'},{t:'learn',w:'Thank you',ar:'شكراً',em:'🙏'},{t:'learn',w:'Goodbye',ar:'مع السلامة',em:'🖐️'},{t:'mcq',q:'What does "Thank you" mean?',o:['شكراً','مع السلامة','صباح الخير'],a:0,say:'Thank you'},{t:'mcq',q:'اختار معنى "Good morning"',o:['مساء الخير','صباح الخير','مرحباً'],a:1,say:'Good morning'},{t:'mcq',q:'How do you say "مرحباً"?',o:['Goodbye','Thank you','Hello'],a:2}]},
@@ -578,7 +600,9 @@ function edItem(li,i,it){const p=`lessons.${li}.items.${i}`,T=[...EDT,['essay','
  else if(it.t==='essay')b=inp('q','موضوع المقال (مثلاً: Write 3 sentences about your best friend.)',it.q,'dir="auto"')+'<div class="mu">الطالب هيكتب، والمقال بيوصلك في تاب الكتابات عشان تقيّمه. مش بيتحسب في النسبة.</div>';
  else if(it.t==='build')b=inp('ar','الجملة بالعربي',it.ar)+`<input value="${esc((it.w||[]).join(' '))}" placeholder="الجملة الصحيحة بالإنجليزي (الكلمات بمسافات)" oninput="edSet('${p}.w',this.value.trim().split(/\\s+/).filter(Boolean))" dir="ltr" style="width:100%;margin:4px 0"><input value="${esc((it.extra||[]).join(' '))}" placeholder="كلمات زيادة للتشتيت (اختياري)" oninput="edSet('${p}.extra',this.value.trim().split(/\\s+/).filter(Boolean))" dir="ltr" style="width:100%;margin:4px 0">`;
  else if(it.t==='match')b=it.pairs.map((q,k)=>`<div class="row" style="margin:3px 0"><input value="${esc(q[0])}" placeholder="English" oninput="edSet('${p}.pairs.${k}.0',this.value)" dir="ltr" style="flex:1"><input value="${esc(q[1])}" placeholder="عربي أو إيموجي" oninput="edSet('${p}.pairs.${k}.1',this.value)" style="flex:1" dir="auto">${it.pairs.length>2?`<button class="d" ${sm} onclick="edPairDel('${p}',${k})">✕</button>`:''}</div>`).join('')+(it.pairs.length<6?`<button class="s" onclick="edPairAdd('${p}')">➕ زوج</button>`:'');
- return `<div class="card"><div class="top"><b>${T?T[1]:esc(it.t)} · ${i+1}</b><span class="row" style="margin:0"><button class="s" ${sm} onclick="edMvI(${li},${i},-1)">⬆</button><button class="s" ${sm} onclick="edMvI(${li},${i},1)">⬇</button><button class="d" ${sm} onclick="edDelI(${li},${i})">🗑</button></span></div>${b}</div>`}
+ return `<div class="card"><div class="top"><b>${T?T[1]:esc(it.t)} · ${i+1}</b><span class="row" style="margin:0"><button class="s" ${sm} onclick="edMvI(${li},${i},-1)">⬆</button><button class="s" ${sm} onclick="edMvI(${li},${i},1)">⬇</button><button class="d" ${sm} onclick="edDelI(${li},${i})">🗑</button></span></div>${b}${edMediaRow(p,it)}</div>`}
+function edMediaRow(p,it){const id='ms'+p.replace(/\./g,'_'),lab=(f,ic,acc,t)=>it[f]?`<span class="b">${ic} ${t} ✔ <button class="d" style="padding:0 8px;min-height:0" onclick="mDel('${p}','${f}')">✕</button></span>`:`<label class="s" style="cursor:pointer;display:inline-block;padding:6px 12px;border-radius:10px">${ic} ${t}<input type="file" accept="${acc}" hidden onchange="mUp(this,'${p}','${f}')"></label>`;
+ return `<div class="row" style="margin:8px 0;gap:6px;flex-wrap:wrap">${lab('au','🎧','audio/*,.mp3,.m4a,.wav,.ogg','صوت')}${lab('vd','🎬','video/mp4,video/webm,video/*','فيديو')}${lab('im','🖼️','image/*','صورة')}<span class="mu" id="${id}"></span></div>`}
 function edV(){const u=ED.u,L=ED.li,btn=(f,t,c)=>`<button class="${c===undefined?'s':c}" onclick="${f}">${t}</button>`;
  if(L===null)return `<div class="card"><div class="top"><h3>${ED.xm?'📝 '+(ED.xid?'تعديل الامتحان':'امتحان جديد'):ED.place?'🎯 اختبار تحديد المستوى':u.id?'✏️ تعديل الوحدة':'➕ وحدة جديدة'}</h3>${btn('edClose()','← رجوع')}</div>
 ${ED.xm?xmMeta(u):ED.place?'':`<div class="row"><input value="${esc(u.t)}" placeholder="عنوان الوحدة (English — بالعربي)" oninput="edSet('t',this.value)" style="flex:1;min-width:220px"><input value="${esc(u.em||'')}" placeholder="🙂" style="width:70px;text-align:center" oninput="edSet('em',this.value)"></div>
@@ -782,10 +806,10 @@ function normExam(u){if(Array.isArray(u))u={lessons:[{t:'Section 1',items:u}]};i
 function vExam(u){if(!u||typeof u!=='object'||Array.isArray(u))return 'لازم يبقى كائن JSON واحد';const L=u.lessons;if(!Array.isArray(L)||!L.length)return 'مفيش أقسام (lessons) في الـ JSON';if(L.length>20)return 'الأقسام أكتر من 20';
  const S2=x=>typeof x==='string'&&x.trim(),isI=(n,m)=>Number.isInteger(n)&&n>=0&&n<m,er=[];
  L.forEach((l,i)=>{const n='القسم '+(i+1);if(!S2(l.t))er.push(n+': محتاج عنوان (t)');if(!Array.isArray(l.items)||!l.items.length)return er.push(n+': مفيش أسئلة (items)');if(l.items.length>60)er.push(n+': أكتر من 60 سؤال في القسم');
-  l.items.forEach((it,j)=>{const m=n+' / سؤال '+(j+1)+': ';if(!it||typeof it!=='object')return er.push(m+'مش كائن');const t=it.t,opt=Array.isArray(it.o)&&it.o.length>=2&&it.o.length<=5&&it.o.every(S2);
+  l.items.forEach((it,j)=>{const m=n+' / سؤال '+(j+1)+': ';if(!it||typeof it!=='object')return er.push(m+'مش كائن');{const me=mediaErr(it);if(me)er.push(m+me)}const t=it.t,opt=Array.isArray(it.o)&&it.o.length>=2&&it.o.length<=5&&it.o.every(S2);
    if(t==='learn'){if(!S2(it.w)||!S2(it.ar))er.push(m+'learn محتاج w و ar')}
    else if(t==='mcq'||t==='fill'){if(!S2(it.q))er.push(m+'ناقص q (نص السؤال)');else if(!opt)er.push(m+'o لازم 2 لـ 5 اختيارات نصية');else if(!isI(it.a,it.o.length))er.push(m+'a لازم رقم الإجابة الصح بادئ من 0 (0 = أول اختيار)')}
-   else if(t==='listen'){if(!S2(it.say))er.push(m+'ناقص say');else if(!opt)er.push(m+'o لازم 2 لـ 5 اختيارات');else if(!isI(it.a,it.o.length))er.push(m+'a لازم رقم صحيح من 0')}
+   else if(t==='listen'){if(!S2(it.say)&&!S2(it.au))er.push(m+'ناقص say (أو صوت مرفوع)');else if(!opt)er.push(m+'o لازم 2 لـ 5 اختيارات');else if(!isI(it.a,it.o.length))er.push(m+'a لازم رقم صحيح من 0')}
    else if(t==='build'||t==='match')er.push(m+'النوع '+t+' مش مسموح في الامتحانات (المسموح: mcq, fill, listen, essay)')
    else er.push(m+'نوع غير معروف ('+t+') — المسموح: mcq, fill, listen, essay, learn')})});
  return er.length?er.slice(0,6).join('\n')+(er.length>6?'\n... و'+(er.length-6)+' مشاكل تانية':''):''}
