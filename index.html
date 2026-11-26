@@ -419,7 +419,7 @@ function uiInit(){applyUi();document.body.insertAdjacentHTML('beforeend',`<butto
 <label class="chip" style="cursor:pointer"><input type="checkbox" id="uhc"> تباين عالي</label></div>`);
  document.getElementById('uip').addEventListener('click',e=>{const b=e.target.closest('.seg button');if(!b)return;const k=b.parentElement.dataset.k;UI[k]=k==='fs'?+b.dataset.v:b.dataset.v;applyUi()});
  document.getElementById('uhc').addEventListener('change',e=>{UI.hc=e.target.checked?1:0;applyUi()});applyUi()}
-const GF={url:'https://docs.google.com/forms/d/e/1FAIpQLScLUY0iD76qIBK1IM3dau43_ENTS8U3-PoTND96tuRZH8Y6XQ/formResponse',map:{name:982643708,age:431641819,gov:784999030,degree:1689159069,major:747750110,level:1097319220,test:2131074606,courses:1683757225,goals:395888782,src:1433331544,phone:0}};   // phone: حطّ هنا رقم entry بتاع خانة الهاتف من الجوجل فورم (لحد ما يتحط، الخانة بتفضل مخفية)
+const GF={url:'https://docs.google.com/forms/d/e/1FAIpQLScLUY0iD76qIBK1IM3dau43_ENTS8U3-PoTND96tuRZH8Y6XQ/formResponse',map:{name:982643708,age:431641819,gov:784999030,degree:1689159069,major:747750110,level:1097319220,test:2131074606,courses:1683757225,goals:395888782,src:1433331544,phone:400477592}};   // phone: حطّ هنا رقم entry بتاع خانة الهاتف من الجوجل فورم (لحد ما يتحط، الخانة بتفضل مخفية)
 const PHONE_ON=()=>!!GF.map.phone;
 function normPhone(v,abroad){let t=String(v||'').replace(/[\u0660-\u0669]/g,c=>c.charCodeAt(0)-0x660).replace(/[\u06F0-\u06F9]/g,c=>c.charCodeAt(0)-0x6F0).replace(/[\s\-().]/g,'');if(/^(\+20|0020)1[0125]\d{8}$/.test(t))t='0'+t.replace(/^(\+20|0020)/,'');if(abroad&&t.startsWith('00'))t='+'+t.slice(2);return t}
 const phoneOk=(v,abroad)=>abroad?/^\+?\d{8,15}$/.test(v):/^01[0125]\d{8}$/.test(v);
